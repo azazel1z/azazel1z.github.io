@@ -67,6 +67,7 @@ const CATEGORIES = [
       { type: 'link', label: 'Letterboxd', sub: '/azazel1z',           url: 'https://letterboxd.com/azazel1z/',           icon: 'si:letterboxd' },
       { type: 'link', label: 'Pinterest',  sub: '/azazel1z',           url: 'https://in.pinterest.com/azazel1z/',         icon: 'si:pinterest' },
       { type: 'link', label: 'Spotify',    sub: '/azazel1z',           url: 'https://open.spotify.com/user/tzjq03bh99kc6cgfi7ivb2m9m', icon: 'si:spotify' },
+      { type: 'link', label: 'Steam',      sub: '/azazel1z',           url: 'https://steamcommunity.com/id/azazel1z/',    icon: 'si:steam' },
     ],
   },
   {
