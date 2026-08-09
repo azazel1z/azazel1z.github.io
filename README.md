@@ -11,7 +11,6 @@ js/xmb.js           cross navigation (keyboard, gamepad, pointer, wheel, touch)
 js/wave.js          month tint + the animated ribbon background
 js/audio.js         synthesised navigation blips
 assets/avatar.jpeg  profile photo (cropped to a circle in CSS)
-assets/resume.pdf   linked from About
 assets/fonts/       M+ 1p, latin subset, self-hosted
 ```
 
@@ -101,10 +100,6 @@ Photo mode is deliberately quiet — the only motion is **parallax**:
 Pick something dark and low-contrast, at least 1920px wide, landscape. The icons
 are flat white silhouettes and will disappear into anything bright or busy;
 `--photo-blur` and the `brightness()` in the `#photo` filter are the two dials.
-
-Filenames are **case-sensitive on GitHub Pages** even though they aren't on
-Windows. `assets/Resume.pdf` would 404 in production while working fine locally,
-so everything here is lowercase. Keep it that way.
 
 ## Making the contact form work
 
