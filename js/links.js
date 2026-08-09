@@ -31,7 +31,6 @@ const CATEGORIES = [
       { type: 'info', label: 'Aryan Chaudhary', sub: 'azazel1z',   icon: 'glyph:user' },
       { type: 'info', label: 'Jaipur, India', sub: 'IST — UTC+5:30',    icon: 'glyph:pin' },
       { type: 'info', label: 'Football, video games', sub: 'and mangas', icon: 'glyph:gamepad' },
-      { type: 'link', label: 'Resume', sub: 'PDF', url: 'assets/resume.pdf', icon: 'glyph:doc' },
     ],
   },
   {
