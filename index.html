@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>azazel1z</title>
+<meta name="description" content="Links, profiles and contact for Aryan Chaudhary (azazel1z).">
+<link rel="icon" href="assets/avatar.jpeg">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="photo" aria-hidden="true"></div>
+<canvas id="wave" aria-hidden="true"></canvas>
+
+<header class="hud">
+  <button id="mute" class="hud-btn" aria-pressed="false" title="Toggle sound">
+    <span class="spk" aria-hidden="true"></span>
+    <span class="sr">Toggle sound</span>
+  </button>
+  <div id="clock" class="clock" aria-live="off"></div>
+</header>
+
+<main id="xmb" tabindex="-1" aria-label="XrossMediaBar navigation">
+  <div id="cats" class="cats" role="tablist" aria-label="Categories"></div>
+  <div id="cols" class="cols"></div>
+</main>
+
+<p class="hint" id="hint">Arrow keys / WASD to move &middot; Enter to open &middot; swipe on touch</p>
+
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
+  <div class="sheet-inner">
+    <h2 id="sheet-title">Send a message</h2>
+    <form id="contact-form" novalidate>
+      <label>Name<input type="text" name="name" required autocomplete="name"></label>
+      <label>Email<input type="email" name="email" required autocomplete="email"></label>
+      <label>Message<textarea name="message" rows="5" required></textarea></label>
+      <!-- honeypot: bots fill this, humans never see it -->
+      <input type="checkbox" name="botcheck" class="hp" tabindex="-1" autocomplete="off">
+      <div class="sheet-actions">
+        <button type="button" id="sheet-close" class="btn ghost">Cancel</button>
+        <button type="submit" class="btn">Send</button>
+      </div>
+      <p id="form-status" class="form-status" role="status"></p>
+    </form>
+  </div>
+</div>
+
+<script src="js/links.js"></script>
+<script src="js/wave.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/xmb.js"></script>
+</body>
+</html>

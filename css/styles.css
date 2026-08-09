@@ -1,0 +1,564 @@
+/* ===========================================================================
+   XrossMediaBar — PS3 "Wave" flavour
+   Layout is driven entirely by CSS custom properties. JS only ever writes
+   --sel (which category) and --slot (which rung of the vertical ladder each
+   row occupies); every position and every breakpoint is resolved here in CSS.
+   =========================================================================== */
+
+/* The XMB's own face is Fontworks' Rodin, which isn't licensable for this.
+   M+ 1p is the closest open substitute — same Japanese-gothic construction,
+   wide apertures, tall x-height. Latin subset only, self-hosted so the page
+   makes no third-party font request. Licence in assets/fonts/OFL.txt. */
+@font-face {
+  font-family: 'M PLUS 1p';
+  src: url('../assets/fonts/mplus1p-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'M PLUS 1p';
+  src: url('../assets/fonts/mplus1p-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* geometry — the cross intersection and the spacing of its arms */
+  --cross-x:  30vw;
+  --cat-y:    27vh;
+  --cat-gap:  150px;
+  --cat-icon: 60px;
+  --item-h:   92px;
+  --item-icon: 38px;
+  /* extra breathing room on each side of the skipped slot 0, so the selected
+     row clears the category label instead of crowding it */
+  --head-gap: 26px;
+
+  /* written by js/xmb.js: --sel on :root, --slot and --gap-sign on each row */
+  --sel:  0;
+  --slot: 0;
+  --gap-sign: 1;
+
+  /* Background tint. Sampled from assets/background.jpg when that file is
+     present; otherwise the month table in js/wave.js. */
+  --bg-a: #14532d;
+  --bg-b: #04150b;
+  --accent: #7ee2a8;
+
+  /* Parallax. --par-x / --par-y run -1..1 and are written by js/xmb.js as the
+     cross moves; --par-range is how far the photo may travel from centre. */
+  --par-x: 0;
+  --par-y: 0;
+  --par-range: 26px;
+  --photo-blur: 3px;
+
+  --ease: cubic-bezier(.22, .61, .28, 1);
+  --dur: 340ms;
+
+  --fg:      #ffffff;
+  --fg-dim:  rgba(255, 255, 255, .40);
+  --fg-mid:  rgba(255, 255, 255, .68);
+
+  /* the halo PSP text carried — a white bloom over a dark shadow for contrast */
+  --bloom:
+    0 0 9px rgba(255, 255, 255, .55),
+    0 0 20px rgba(255, 255, 255, .22),
+    0 1px 3px rgba(0, 0, 0, .60);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #04150b;
+}
+
+body {
+  font-family: 'M PLUS 1p', system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* the tint; the photo and canvas draw on top of this */
+  background:
+    radial-gradient(120% 90% at 18% 42%, var(--bg-a) 0%, var(--bg-b) 72%, #020a06 100%);
+  transition: background 1.2s linear;
+}
+
+/* Vignette — only with a photo, where it's doing real work holding the white
+   icons off a busy frame. Sits above the image, below the XMB. */
+body.photo-on::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(ellipse 80% 70% at 50% 44%,
+    transparent 38%, rgba(0, 0, 0, .30) 76%, rgba(0, 0, 0, .56) 100%);
+}
+
+.sr {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+
+/* The photograph. Only shown once js/wave.js confirms the file loaded, so a
+   missing assets/background.jpg leaves the gradient background untouched.
+   Inset negatively to overscan: parallax slides it without exposing an edge. */
+#photo {
+  position: fixed;
+  inset: calc(-1 * var(--par-range) - 8px);
+  z-index: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  /* graded to sit under white icons: darkened, softened, pulled toward the
+     muted range. Filters are GPU work done once, not per frame. */
+  filter: blur(var(--photo-blur)) brightness(.46) saturate(.72) contrast(1.06);
+  opacity: 0;
+  transition: opacity 900ms ease, transform 620ms cubic-bezier(.22, .61, .28, 1);
+  /* moves against the cross, so the background reads as further away */
+  transform: translate3d(
+    calc(var(--par-x) * var(--par-range) * -1),
+    calc(var(--par-y) * var(--par-range) * -0.6),
+    0
+  );
+  will-change: transform;
+  pointer-events: none;
+}
+#photo.on { opacity: 1; }
+
+#wave {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- HUD ---- */
+
+.hud {
+  position: fixed;
+  top: 0; right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 24px;
+  padding-right: max(24px, env(safe-area-inset-right));
+}
+
+/* the PSP drew this as bare text in the corner — no plate, no border */
+.clock {
+  font-size: 17px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+  text-align: right;
+  text-shadow: var(--bloom);
+}
+
+.hud-btn {
+  display: grid;
+  place-items: center;
+  width: 34px; height: 34px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .08);
+  color: var(--fg);
+  cursor: pointer;
+  transition: background 160ms, opacity 160ms;
+}
+.hud-btn:hover { background: rgba(255, 255, 255, .18); }
+
+/* speaker glyph; a slash is added when muted */
+.spk {
+  position: relative;
+  width: 15px; height: 13px;
+  background: currentColor;
+  clip-path: polygon(0 32%, 30% 32%, 58% 0, 58% 100%, 30% 68%, 0 68%);
+}
+.spk::after {
+  content: "";
+  position: absolute;
+  right: -2px; top: 1px;
+  width: 8px; height: 11px;
+  border-right: 2px solid currentColor;
+  border-radius: 0 50% 50% 0 / 0 50% 50% 0;
+  opacity: .9;
+}
+[aria-pressed="true"] .spk { opacity: .45; }
+[aria-pressed="true"] .spk::after {
+  border-color: transparent;
+  background: currentColor;
+  clip-path: polygon(0 44%, 100% 0, 100% 22%, 0 66%);
+  width: 20px; right: -8px; top: 0; height: 13px;
+  border-radius: 0;
+}
+
+.hint {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 0 24px 20px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--fg-dim);
+  pointer-events: none;
+  transition: opacity 600ms;
+}
+.hint.gone { opacity: 0; }
+
+/* ---------------------------------------------------------------- XMB ---- */
+
+#xmb {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  outline: none;
+}
+
+/* --- horizontal arm ------------------------------------------------------ */
+
+.cats {
+  position: absolute;
+  z-index: 1;
+  top: var(--cat-y);
+  left: 0;
+  display: flex;
+  align-items: center;
+  /* centre the selected category on the cross */
+  transform: translate(
+    calc(var(--cross-x) - var(--cat-gap) / 2 - var(--sel) * var(--cat-gap)),
+    -50%
+  );
+  transition: transform var(--dur) var(--ease);
+  will-change: transform;
+}
+
+.cat {
+  position: relative;
+  flex: none;
+  width: var(--cat-gap);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  opacity: .42;
+  transition: opacity var(--dur) var(--ease);
+}
+.cat[aria-selected="true"] { opacity: 1; }
+
+/* PSP icons barely changed size between states — brightness did the work */
+.cat-icon {
+  display: grid;
+  place-items: center;
+  width: var(--cat-icon);
+  height: var(--cat-icon);
+  transform: scale(.84);
+  transition: transform var(--dur) var(--ease), filter var(--dur) var(--ease);
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .5));
+}
+.cat[aria-selected="true"] .cat-icon {
+  transform: scale(1);
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, .5))
+          drop-shadow(0 0 18px rgba(255, 255, 255, .22))
+          drop-shadow(0 2px 5px rgba(0, 0, 0, .5));
+}
+.cat-icon svg, .cat-icon img { width: 100%; height: 100%; display: block; }
+
+/* Out of flow, so .cat is exactly as tall as its icon and the icon centre
+   lands on the ladder line rather than the icon-plus-label block doing so. */
+.cat-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-top: 9px;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, -4px);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+  text-shadow: var(--bloom);
+}
+.cat[aria-selected="true"] .cat-label { opacity: 1; transform: translate(-50%, 0); }
+
+/* --- vertical arm -------------------------------------------------------- */
+
+/* The column and the icon bar share ONE ladder of slots, spaced --item-h apart
+   and anchored on the category row. Slot 0 belongs to the category icon, so
+   rows step around it: the selected row sits at slot 1, and a row scrolling up
+   past the selection jumps from slot 1 straight to slot -1, leaving the gap
+   the PSP leaves. js/xmb.js writes --slot per row; the arithmetic stays here. */
+.cols {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.col {
+  position: absolute;
+  top: var(--cat-y);
+  left: 0;
+  width: 100%;
+  height: 0;
+  transform: translateX(calc(var(--cross-x) - var(--cat-gap) / 2));
+  /* the visibility delay lets the column finish fading before it's pulled
+     out of the tree — without it the swap pops instead of crossfading */
+  transition: opacity 220ms linear,
+              visibility 0s linear 220ms;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.col.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 220ms linear,
+              visibility 0s linear 0s;
+}
+
+.item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  height: var(--item-h);
+  width: min(560px, 68vw);
+  /* centre slot s on the ladder line at cat-y + s * item-h, then push the row
+     away from the category icon by --head-gap (down below it, up above it) */
+  transform: translateY(calc(
+    var(--slot) * var(--item-h)
+    + var(--gap-sign) * var(--head-gap)
+    - var(--item-h) / 2
+  ));
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  opacity: .38;
+  transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease);
+  will-change: transform;
+}
+.item.info { cursor: default; }
+.item.sel { opacity: 1; }
+
+.item-icon {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--cat-gap);
+  height: var(--item-h);
+}
+
+/* No glassy plate here — the PSP sat its icons straight on the wallpaper. */
+.item-icon .glyph {
+  position: relative;
+  width: var(--item-icon);
+  height: var(--item-icon);
+  transform: scale(.9);
+  transition: transform var(--dur) var(--ease), filter var(--dur) var(--ease);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .5));
+}
+.item.sel .item-icon .glyph {
+  transform: scale(1.06);
+  filter: drop-shadow(0 0 7px rgba(255, 255, 255, .45))
+          drop-shadow(0 0 16px rgba(255, 255, 255, .2))
+          drop-shadow(0 2px 4px rgba(0, 0, 0, .5));
+}
+.item-icon .glyph svg,
+.item-icon .glyph img { width: 100%; height: 100%; display: block; }
+
+/* photos, unlike marks, get cropped to a circle */
+.cat-icon img.photo,
+.item-icon .glyph img.photo {
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .35);
+}
+
+/* Only the selected row is captioned — every other row is a bare icon, the
+   way the PSP drew its columns. The text stays in the DOM for screen readers. */
+.item-text {
+  min-width: 0;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.item.sel .item-text { opacity: 1; }
+
+.item-label {
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: var(--bloom);
+}
+
+.item-sub {
+  margin-top: 1px;
+  font-size: 13px;
+  color: var(--fg-mid);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+
+/* ------------------------------------------------------- contact sheet --- */
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 10, 6, .62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: fade 200ms var(--ease);
+}
+.sheet[hidden] { display: none; }
+@keyframes fade { from { opacity: 0; } }
+
+.sheet-inner {
+  width: min(460px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 26px 26px 22px;
+  border: 1px solid rgba(255, 255, 255, .26);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, .05));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 24px 60px rgba(0, 0, 0, .5);
+}
+.sheet-inner h2 {
+  margin: 0 0 18px;
+  font-size: 22px;
+  font-weight: 500;
+  text-shadow: 0 0 12px rgba(255, 255, 255, .35);
+}
+
+.sheet label {
+  display: block;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--fg-mid);
+}
+.sheet input, .sheet textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, .26);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, .28);
+  color: var(--fg);
+  font: inherit;
+  font-size: 15px;
+  resize: vertical;
+}
+.sheet input:focus, .sheet textarea:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, .6);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .12);
+}
+.hp { position: absolute; left: -9999px; opacity: 0; }
+
+.sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+.btn {
+  padding: 9px 20px;
+  border: 1px solid rgba(255, 255, 255, .34);
+  border-radius: 7px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, .08));
+  color: var(--fg);
+  font: inherit;
+  font-size: 14.5px;
+  cursor: pointer;
+  transition: background 160ms;
+}
+.btn:hover { background: rgba(255, 255, 255, .3); }
+.btn.ghost { background: transparent; }
+.btn[disabled] { opacity: .5; cursor: default; }
+
+.form-status {
+  margin: 12px 0 0;
+  min-height: 18px;
+  font-size: 13.5px;
+  color: var(--fg-mid);
+}
+.form-status.err { color: #ffb4a8; }
+.form-status.ok  { color: #a8ffc4; }
+
+/* ------------------------------------------------------------ responsive - */
+
+@media (max-width: 1100px) {
+  :root {
+    --cross-x: 28vw;
+    --cat-gap: 124px;
+    --cat-icon: 52px;
+    --item-h: 80px;
+    --item-icon: 34px;
+    --head-gap: 22px;
+  }
+  .item-label { font-size: 20px; }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --cross-x: 30vw;
+    --cat-y: 22vh;
+    --cat-gap: 92px;
+    --cat-icon: 42px;
+    --item-h: 68px;
+    --item-icon: 28px;
+    --head-gap: 16px;
+  }
+  .cat-label { font-size: 13px; margin-top: 8px; }
+  .item { width: 66vw; }
+  .item-label { font-size: 17px; }
+  .item-sub { font-size: 11.5px; }
+  .clock { font-size: 14px; }
+  .hud { padding: 12px 14px; }
+  .hint { font-size: 11px; padding-bottom: 14px; }
+}
+
+/* Short landscape phones. --item-h has to stay wide enough that the category
+   label still clears the slot-1 row, so the icons shrink instead. */
+@media (max-height: 480px) {
+  :root {
+    --cat-y: 18vh;
+    --cat-icon: 42px;
+    --item-h: 74px;
+    --item-icon: 28px;
+    --head-gap: 14px;
+  }
+  .cat-label { font-size: 14px; }
+  .item-label { font-size: 17px; }
+  .hint { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur: 1ms; }
+  #wave { display: none; }
+  .sheet { animation: none; }
+  * { transition-duration: 1ms !important; }
+}
